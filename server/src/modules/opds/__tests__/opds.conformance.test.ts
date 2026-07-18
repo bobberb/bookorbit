@@ -205,9 +205,18 @@ describe('OPDS 1.2 conformance', () => {
       expect(linkByRel(feed, 'first')).toBeUndefined();
       expect(linkByRel(feed, 'previous')).toBeUndefined();
       expect(linkByRel(feed, 'next')).toBeUndefined();
-      // No `last` rel by design: author paging has no total count (bo-pc2.3), so
-      // the final page is unknown and a `last` link would be fabricated.
+      // When no total is supplied the final page is unknown, so no `last` link.
       expect(linkByRel(feed, 'last')).toBeUndefined();
+    });
+
+    it('emits a navigation-typed last link pointing at the final page when a total is supplied', () => {
+      // 95 authors at size 10 => ceil(95/10) = 10 pages.
+      const xml = makeService().generateAuthorsNavigation([{ name: 'Frank Herbert', bookCount: 3 }], 2, 10, true, 95);
+      const feed = parseFeed(xml);
+
+      const last = linkByRel(feed, 'last');
+      expect(last?.['@_href']).toBe(`${BASE}/authors?page=10&size=10`);
+      expect(last?.['@_type']).toBe(OPDS_MIME_NAV);
     });
   });
 

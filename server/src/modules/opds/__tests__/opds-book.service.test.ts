@@ -203,6 +203,27 @@ describe('OpdsBookService', () => {
     expect(seriesChain.innerJoin).toHaveBeenCalledWith(bookSeriesMemberships, expect.anything());
   });
 
+  it('counts distinct authors over the same joins/scope as the list query', async () => {
+    // Queue slot 1 feeds the distinct-groups subquery builder (never awaited);
+    // slot 2 is the awaited count result.
+    const { service, db } = makeService([[], [{ total: 42 }]]);
+    const accessSpy = vi.spyOn(service, 'getAccessibleLibraryIds');
+
+    accessSpy.mockResolvedValueOnce([]);
+    await expect(service.getDistinctAuthorsCount(1)).resolves.toBe(0);
+
+    accessSpy.mockResolvedValueOnce([1, 2]);
+    await expect(service.getDistinctAuthorsCount(1)).resolves.toBe(42);
+
+    const chains = (db.select as ReturnType<typeof vi.fn>).mock.results.map((r) => r.value as Record<string, unknown>);
+    // The subquery mirrors the list query: FROM authors, INNER JOIN bookAuthors,
+    // grouped by (name, sortName). It must be finalized with `.as()` as a subquery.
+    const subChain = chains.at(-2)!;
+    expect(subChain.innerJoin).toHaveBeenCalled();
+    expect(subChain.groupBy).toHaveBeenCalled();
+    expect(subChain.as).toHaveBeenCalledWith('distinct_authors');
+  });
+
   it('returns user collections and smartScopes', async () => {
     const { service, db } = makeService([[{ id: 4, name: 'Favorites', bookCount: 1 }], [{ id: 7, name: 'Unread', icon: 'sparkles' }]]);
 

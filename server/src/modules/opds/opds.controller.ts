@@ -92,13 +92,16 @@ export class OpdsController {
     const clampedPage = Math.max(page, 1);
     this.assertPaginationWindow(clampedPage, clampedSize);
 
-    const { items, hasNext } = await this.opdsBookService.getDistinctAuthorsPage(
-      user.userId,
-      { limit: clampedSize, offset: (clampedPage - 1) * clampedSize },
-      user.isSuperuser,
-      user.contentFilters,
-    );
-    const xml = this.opdsService.generateAuthorsNavigation(items, clampedPage, clampedSize, hasNext);
+    const [{ items, hasNext }, total] = await Promise.all([
+      this.opdsBookService.getDistinctAuthorsPage(
+        user.userId,
+        { limit: clampedSize, offset: (clampedPage - 1) * clampedSize },
+        user.isSuperuser,
+        user.contentFilters,
+      ),
+      this.opdsBookService.getDistinctAuthorsCount(user.userId, {}, user.isSuperuser, user.contentFilters),
+    ]);
+    const xml = this.opdsService.generateAuthorsNavigation(items, clampedPage, clampedSize, hasNext, total);
     this.sendXml(reply!, xml, OPDS_MIME_NAV);
   }
 
@@ -168,7 +171,7 @@ export class OpdsController {
     const feedId = filterSuffix ? `urn:bookorbit:catalog:${filterSuffix}` : 'urn:bookorbit:catalog';
 
     const feedTitle = q ? `Search: ${q}` : 'Catalog';
-    const upPath = author ? '/api/v1/opds/authors' : undefined;
+    const upPath = this.resolveUpPath({ author, collectionId, libraryId, series, seriesId, smartScopeId });
     const asciiByLibrary = await this.buildAsciiByLibrary(entries);
     const xml = this.opdsService.generateAcquisitionFeed(
       feedTitle,
@@ -339,6 +342,27 @@ export class OpdsController {
   private async buildAsciiByLibrary(entries: OpdsBookEntry[]): Promise<Map<number, boolean>> {
     const libraryIds = [...new Set(entries.map((e) => e.libraryId))];
     return this.opdsBookService.getOpdsAsciiOnlyByLibrary(libraryIds);
+  }
+
+  // Every filtered browse feed links `up` to its parent navigation feed. When
+  // multiple filters are somehow set, precedence is author > series > collection
+  // > smartScope > library (most specific browse dimension first). The unfiltered
+  // all-books feed links up to the root nav.
+  private resolveUpPath(filters: {
+    author?: string;
+    series?: string;
+    seriesId?: number;
+    collectionId?: number;
+    smartScopeId?: number;
+    libraryId?: number;
+  }): string {
+    const BASE = '/api/v1/opds';
+    if (filters.author) return `${BASE}/authors`;
+    if (filters.series || filters.seriesId !== undefined) return `${BASE}/series`;
+    if (filters.collectionId !== undefined) return `${BASE}/collections`;
+    if (filters.smartScopeId !== undefined) return `${BASE}/smart-scopes`;
+    if (filters.libraryId !== undefined) return `${BASE}/libraries`;
+    return BASE;
   }
 
   private parseOptionalPositiveInt(name: string, value?: string): number | undefined {

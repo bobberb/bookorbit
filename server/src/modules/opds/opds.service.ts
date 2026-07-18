@@ -76,7 +76,7 @@ export class OpdsService {
     );
   }
 
-  generateAuthorsNavigation(items: { name: string; bookCount: number }[], page = 1, size = items.length, hasNext = false): string {
+  generateAuthorsNavigation(items: { name: string; bookCount: number }[], page = 1, size = items.length, hasNext = false, total?: number): string {
     const now = new Date().toISOString();
     const entries = items.map((a) =>
       this.navEntry(
@@ -97,6 +97,10 @@ export class OpdsService {
     }
     if (hasNext) {
       links.push(xmlLink('next', pageUrl(page + 1), OPDS_MIME_NAV));
+    }
+    if (total !== undefined) {
+      const lastPage = Math.max(1, Math.ceil(total / size));
+      links.push(xmlLink('last', pageUrl(lastPage), OPDS_MIME_NAV));
     }
 
     return this.wrapFeed('Authors', 'urn:bookorbit:authors', now, links, entries);

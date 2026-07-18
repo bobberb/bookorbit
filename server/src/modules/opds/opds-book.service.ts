@@ -406,6 +406,37 @@ export class OpdsBookService {
     return { items: hasNext ? rows.slice(0, opts.limit) : rows, hasNext };
   }
 
+  async getDistinctAuthorsCount(
+    userId: number,
+    opts: { q?: string } = {},
+    isSuperuser = false,
+    contentFilters?: ContentFilterRules,
+  ): Promise<number> {
+    const accessibleIds = await this.getAccessibleLibraryIds(userId, isSuperuser);
+    if (accessibleIds.length === 0) return 0;
+
+    const filterClauses = !isSuperuser && contentFilters ? buildContentFilterClauses(contentFilters, this.db) : [];
+    const where: SQL[] = [inArray(books.libraryId, accessibleIds)];
+    const term = opts.q?.trim();
+    if (term) {
+      where.push(accentInsensitiveIlike(authors.name, `%${term.replace(LIKE_SPECIAL_CHARS, '\\$&')}%`));
+    }
+
+    // Count distinct author groups exactly as the list query groups them
+    // (authors.name, authors.sortName), so counts and items agree.
+    const distinctGroups = this.db
+      .select({ name: authors.name })
+      .from(authors)
+      .innerJoin(bookAuthors, eq(bookAuthors.authorId, authors.id))
+      .innerJoin(books, and(eq(books.id, bookAuthors.bookId), eq(books.status, 'present'), ...filterClauses))
+      .where(and(...where))
+      .groupBy(authors.name, authors.sortName)
+      .as('distinct_authors');
+
+    const [row] = await this.db.select({ total: count() }).from(distinctGroups);
+    return row?.total ?? 0;
+  }
+
   async getDistinctSeriesPage(
     userId: number,
     opts: { q?: string; limit: number; offset: number },
