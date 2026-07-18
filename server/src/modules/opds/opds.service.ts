@@ -33,7 +33,13 @@ export class OpdsService {
     const entries = libs.map((lib) =>
       this.navEntry(`urn:bookorbit:library:${lib.id}`, lib.name, `${lib.bookCount} books`, `${BASE}/catalog?libraryId=${lib.id}`, now),
     );
-    return this.wrapFeed('Libraries', 'urn:bookorbit:libraries', now, [xmlLink('self', `${BASE}/libraries`, OPDS_MIME_NAV)], entries);
+    return this.wrapFeed(
+      'Libraries',
+      'urn:bookorbit:libraries',
+      now,
+      [xmlLink('self', `${BASE}/libraries`, OPDS_MIME_NAV), xmlLink('start', BASE, OPDS_MIME_NAV)],
+      entries,
+    );
   }
 
   generateCollectionsNavigation(cols: { id: number; name: string; bookCount: number }[]): string {
@@ -41,7 +47,13 @@ export class OpdsService {
     const entries = cols.map((col) =>
       this.navEntry(`urn:bookorbit:collection:${col.id}`, col.name, `${col.bookCount} books`, `${BASE}/catalog?collectionId=${col.id}`, now),
     );
-    return this.wrapFeed('Collections', 'urn:bookorbit:collections', now, [xmlLink('self', `${BASE}/collections`, OPDS_MIME_NAV)], entries);
+    return this.wrapFeed(
+      'Collections',
+      'urn:bookorbit:collections',
+      now,
+      [xmlLink('self', `${BASE}/collections`, OPDS_MIME_NAV), xmlLink('start', BASE, OPDS_MIME_NAV)],
+      entries,
+    );
   }
 
   generateSmartScopesNavigation(items: { id: number; name: string; icon: string | null }[]): string {
@@ -55,7 +67,13 @@ export class OpdsService {
         now,
       ),
     );
-    return this.wrapFeed('SmartScopes', 'urn:bookorbit:smartScopes', now, [xmlLink('self', `${BASE}/smart-scopes`, OPDS_MIME_NAV)], entries);
+    return this.wrapFeed(
+      'SmartScopes',
+      'urn:bookorbit:smartScopes',
+      now,
+      [xmlLink('self', `${BASE}/smart-scopes`, OPDS_MIME_NAV), xmlLink('start', BASE, OPDS_MIME_NAV)],
+      entries,
+    );
   }
 
   generateAuthorsNavigation(items: { name: string; bookCount: number }[], page = 1, size = items.length, hasNext = false): string {
@@ -71,7 +89,7 @@ export class OpdsService {
     );
 
     const selfPath = `${BASE}/authors?page=${page}&size=${size}`;
-    const links = [xmlLink('self', selfPath, OPDS_MIME_NAV)];
+    const links = [xmlLink('self', selfPath, OPDS_MIME_NAV), xmlLink('start', BASE, OPDS_MIME_NAV)];
     const pageUrl = (p: number) => `${BASE}/authors?page=${p}&size=${size}`;
     if (page > 1) {
       links.push(xmlLink('first', pageUrl(1), OPDS_MIME_NAV));
@@ -95,7 +113,13 @@ export class OpdsService {
         now,
       ),
     );
-    return this.wrapFeed('Series', 'urn:bookorbit:series', now, [xmlLink('self', `${BASE}/series`, OPDS_MIME_NAV)], entries);
+    return this.wrapFeed(
+      'Series',
+      'urn:bookorbit:series',
+      now,
+      [xmlLink('self', `${BASE}/series`, OPDS_MIME_NAV), xmlLink('start', BASE, OPDS_MIME_NAV)],
+      entries,
+    );
   }
 
   generateAcquisitionFeed(
@@ -244,6 +268,10 @@ export class OpdsService {
       `  ${xmlEl('title', title)}`,
       `  ${xmlEl('id', id)}`,
       `  ${xmlEl('updated', updated)}`,
+      '  <author>',
+      `    ${xmlEl('name', 'bookorbit')}`,
+      `    ${xmlEl('uri', 'https://github.com/bookorbit/bookorbit')}`,
+      '  </author>',
     ];
 
     if (totalResults !== undefined) {
