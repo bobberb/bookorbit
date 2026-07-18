@@ -113,6 +113,48 @@ describe('OpdsService', () => {
       expect(xml).toContain('<title>J.R.R. Tolkien</title>');
       expect(xml).toContain(encodeURIComponent('J.R.R. Tolkien'));
     });
+
+    it('URL-encodes author names with spaces and non-ASCII characters', () => {
+      const service = makeService();
+      const xml = service.generateAuthorsNavigation([{ name: 'Gabriel García Márquez', bookCount: 4 }]);
+
+      expect(xml).toContain('<title>Gabriel García Márquez</title>');
+      const encoded = encodeURIComponent('Gabriel García Márquez');
+      expect(encoded).toBe('Gabriel%20Garc%C3%ADa%20M%C3%A1rquez');
+      expect(xml).toContain(`${BASE}/catalog?author=${encoded}`);
+      expect(xml).toContain(`urn:bookorbit:author:${encoded}`);
+      // The raw name (with spaces / accents) must never leak into the href.
+      expect(xml).not.toContain(`author=Gabriel García`);
+    });
+
+    it('URL-encodes reserved characters (& and /) in the href', () => {
+      const service = makeService();
+      const xml = service.generateAuthorsNavigation([{ name: 'AC/DC & Friends', bookCount: 1 }]);
+
+      const encoded = encodeURIComponent('AC/DC & Friends');
+      expect(encoded).toBe('AC%2FDC%20%26%20Friends');
+      expect(xml).toContain(`${BASE}/catalog?author=${encoded}`);
+    });
+
+    it('emits self/first/previous/next links reflecting the current page and hasNext', () => {
+      const service = makeService();
+      const xml = service.generateAuthorsNavigation([{ name: 'Frank Herbert', bookCount: 3 }], 2, 10, true);
+
+      expect(xml).toContain(`<link rel="self" href="${BASE}/authors?page=2&amp;size=10"`);
+      expect(xml).toContain(`<link rel="first" href="${BASE}/authors?page=1&amp;size=10"`);
+      expect(xml).toContain(`<link rel="previous" href="${BASE}/authors?page=1&amp;size=10"`);
+      expect(xml).toContain(`<link rel="next" href="${BASE}/authors?page=3&amp;size=10"`);
+    });
+
+    it('omits previous/first on page 1 and omits next when hasNext is false', () => {
+      const service = makeService();
+      const xml = service.generateAuthorsNavigation([{ name: 'Frank Herbert', bookCount: 3 }], 1, 10, false);
+
+      expect(xml).toContain(`<link rel="self" href="${BASE}/authors?page=1&amp;size=10"`);
+      expect(xml).not.toContain('rel="previous"');
+      expect(xml).not.toContain('rel="first"');
+      expect(xml).not.toContain('rel="next"');
+    });
   });
 
   describe('generateSeriesNavigation', () => {
@@ -263,6 +305,33 @@ describe('OpdsService', () => {
       expect(xml).toContain('rel="next"');
       expect(xml).toContain('rel="first"');
       expect(xml).toContain('rel="last"');
+    });
+
+    it('emits an up link back to the authors feed when upPath is provided', () => {
+      const service = makeService();
+      const xml = service.generateAcquisitionFeed(
+        'Catalog',
+        'urn:bookorbit:catalog:author:Frank%20Herbert',
+        [],
+        3,
+        1,
+        50,
+        `${BASE}/catalog?author=Frank+Herbert&page=1&size=50`,
+        'test-token',
+        'author_asc',
+        new Map(),
+        `${BASE}/authors`,
+      );
+
+      expect(xml).toContain(`<link rel="up" href="${BASE}/authors"`);
+      expect(xml).toContain('opds:facetGroup="Sort"');
+    });
+
+    it('omits the up link when upPath is absent', () => {
+      const service = makeService();
+      const xml = service.generateAcquisitionFeed('Catalog', 'urn:bookorbit:catalog', [], 3, 1, 50, `${BASE}/catalog?page=1&size=50`, 'test-token');
+
+      expect(xml).not.toContain('rel="up"');
     });
 
     it('generates correct pagination URLs', () => {

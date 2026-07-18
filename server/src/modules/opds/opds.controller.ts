@@ -82,10 +82,24 @@ export class OpdsController {
   }
 
   @Get('authors')
-  async authors(@OpdsUser() user: OpdsRequestUser, @Res() reply: FastifyReply) {
-    const items = await this.opdsBookService.getDistinctAuthors(user.userId, user.isSuperuser, user.contentFilters);
-    const xml = this.opdsService.generateAuthorsNavigation(items);
-    this.sendXml(reply, xml, OPDS_MIME_NAV);
+  async authors(
+    @OpdsUser() user: OpdsRequestUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('size', new DefaultValuePipe(50), ParseIntPipe) size: number,
+    @Res() reply?: FastifyReply,
+  ) {
+    const clampedSize = Math.min(Math.max(size, 1), 100);
+    const clampedPage = Math.max(page, 1);
+    this.assertPaginationWindow(clampedPage, clampedSize);
+
+    const { items, hasNext } = await this.opdsBookService.getDistinctAuthorsPage(
+      user.userId,
+      { limit: clampedSize, offset: (clampedPage - 1) * clampedSize },
+      user.isSuperuser,
+      user.contentFilters,
+    );
+    const xml = this.opdsService.generateAuthorsNavigation(items, clampedPage, clampedSize, hasNext);
+    this.sendXml(reply!, xml, OPDS_MIME_NAV);
   }
 
   @Get('series')
@@ -154,6 +168,7 @@ export class OpdsController {
     const feedId = filterSuffix ? `urn:bookorbit:catalog:${filterSuffix}` : 'urn:bookorbit:catalog';
 
     const feedTitle = q ? `Search: ${q}` : 'Catalog';
+    const upPath = author ? '/api/v1/opds/authors' : undefined;
     const asciiByLibrary = await this.buildAsciiByLibrary(entries);
     const xml = this.opdsService.generateAcquisitionFeed(
       feedTitle,
@@ -166,6 +181,7 @@ export class OpdsController {
       user.coverToken,
       sortOrder,
       asciiByLibrary,
+      upPath,
     );
     this.sendXml(reply!, xml, OPDS_MIME_ACQ);
   }

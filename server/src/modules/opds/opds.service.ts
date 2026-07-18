@@ -58,7 +58,7 @@ export class OpdsService {
     return this.wrapFeed('SmartScopes', 'urn:bookorbit:smartScopes', now, [xmlLink('self', `${BASE}/smart-scopes`, OPDS_MIME_NAV)], entries);
   }
 
-  generateAuthorsNavigation(items: { name: string; bookCount: number }[]): string {
+  generateAuthorsNavigation(items: { name: string; bookCount: number }[], page = 1, size = items.length, hasNext = false): string {
     const now = new Date().toISOString();
     const entries = items.map((a) =>
       this.navEntry(
@@ -69,7 +69,19 @@ export class OpdsService {
         now,
       ),
     );
-    return this.wrapFeed('Authors', 'urn:bookorbit:authors', now, [xmlLink('self', `${BASE}/authors`, OPDS_MIME_NAV)], entries);
+
+    const selfPath = `${BASE}/authors?page=${page}&size=${size}`;
+    const links = [xmlLink('self', selfPath, OPDS_MIME_NAV)];
+    const pageUrl = (p: number) => `${BASE}/authors?page=${p}&size=${size}`;
+    if (page > 1) {
+      links.push(xmlLink('first', pageUrl(1), OPDS_MIME_NAV));
+      links.push(xmlLink('previous', pageUrl(page - 1), OPDS_MIME_NAV));
+    }
+    if (hasNext) {
+      links.push(xmlLink('next', pageUrl(page + 1), OPDS_MIME_NAV));
+    }
+
+    return this.wrapFeed('Authors', 'urn:bookorbit:authors', now, links, entries);
   }
 
   generateSeriesNavigation(items: { id?: number; name: string; bookCount: number }[]): string {
@@ -97,6 +109,7 @@ export class OpdsService {
     coverToken: string,
     activeSort?: OpdsSortOrder,
     asciiByLibrary: Map<number, boolean> = new Map(),
+    upPath?: string,
   ): string {
     const now = new Date().toISOString();
     const totalPages = Math.max(1, Math.ceil(total / size));
@@ -105,6 +118,10 @@ export class OpdsService {
       xmlLink('start', BASE, OPDS_MIME_NAV),
       xmlLink('search', `${BASE}/search.opds`, OPDS_MIME_SEARCH),
     ];
+
+    if (upPath) {
+      links.push(xmlLink('up', upPath, OPDS_MIME_NAV));
+    }
 
     const url = new URL(selfPath, 'http://localhost');
     const pageUrl = (p: number) => {
