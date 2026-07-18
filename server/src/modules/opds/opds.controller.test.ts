@@ -201,6 +201,30 @@ describe('OpdsController', () => {
     expect(unknown.opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'recent', 1, 50, {}, false, undefined);
   });
 
+  it('per-collection catalog threads collectionId and sort into the self path', async () => {
+    const { controller, opdsBookService, opdsService } = makeController();
+    const user = { userId: 7, isSuperuser: false, sortOrder: 'recent', coverToken: 'token' } as never;
+
+    await controller.catalog(user, 1, 50, undefined, '8', undefined, undefined, undefined, undefined, makeReply(), undefined, 'published_desc');
+
+    expect(opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'published_desc', 1, 50, { collectionId: 8 }, false, undefined);
+    const selfPath = opdsService.generateAcquisitionFeed.mock.calls[0][6] as string;
+    expect(selfPath).toContain('collectionId=8');
+    expect(selfPath).toContain('sort=published_desc');
+    expect(opdsService.generateAcquisitionFeed).toHaveBeenCalledWith(
+      expect.anything(),
+      'urn:bookorbit:catalog:collectionId:8',
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining('collectionId=8'),
+      'token',
+      'published_desc',
+      expect.any(Map),
+    );
+  });
+
   it('catalog generates unique feed ids per filter context', async () => {
     const user = { userId: 5, isSuperuser: false, sortOrder: 'recent', coverToken: 'tok' } as never;
 

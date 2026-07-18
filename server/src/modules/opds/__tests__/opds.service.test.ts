@@ -420,6 +420,115 @@ describe('OpdsService', () => {
       expect(prevLink).toContain('sort=author_desc');
     });
 
+    it('per-collection feed emits the full Sort facet group', () => {
+      const service = makeService();
+      const xml = service.generateAcquisitionFeed(
+        'Catalog',
+        'urn:bookorbit:catalog:collectionId:7',
+        [],
+        100,
+        1,
+        10,
+        `${BASE}/catalog?collectionId=7&page=1&size=10&sort=title_asc`,
+        'test-token',
+        'title_asc',
+      );
+
+      const facetLinks = xml.match(/<link rel="http:\/\/opds-spec\.org\/facet"[^>]*opds:facetGroup="Sort"[^>]*\/>/g) ?? [];
+      expect(facetLinks).toHaveLength(OPDS_FACET_SORTS.length);
+    });
+
+    it('per-collection feed preserves collectionId and resets page on every facet href', () => {
+      const service = makeService();
+      const xml = service.generateAcquisitionFeed(
+        'Catalog',
+        'urn:bookorbit:catalog:collectionId:7',
+        [],
+        100,
+        3,
+        10,
+        `${BASE}/catalog?collectionId=7&page=3&size=10&sort=title_asc`,
+        'test-token',
+        'title_asc',
+      );
+
+      const facetLinks = xml.match(/<link rel="http:\/\/opds-spec\.org\/facet"[^>]*\/>/g) ?? [];
+      expect(facetLinks).toHaveLength(OPDS_FACET_SORTS.length);
+      for (const link of facetLinks) {
+        expect(link).toContain('collectionId=7');
+        expect(link).toContain('page=1');
+        expect(link).not.toMatch(/page=3/);
+      }
+    });
+
+    it('per-collection feed keeps collectionId and sort on self and pagination links', () => {
+      const service = makeService();
+      const xml = service.generateAcquisitionFeed(
+        'Catalog',
+        'urn:bookorbit:catalog:collectionId:7',
+        [],
+        100,
+        2,
+        10,
+        `${BASE}/catalog?collectionId=7&page=2&size=10&sort=author_desc`,
+        'test-token',
+        'author_desc',
+      );
+
+      const selfLink = xml.match(/<link rel="self"[^>]*\/>/)![0];
+      expect(selfLink).toContain('collectionId=7');
+      expect(selfLink).toContain('sort=author_desc');
+      const nextLink = xml.match(/<link rel="next"[^>]*\/>/)![0];
+      expect(nextLink).toContain('collectionId=7');
+      expect(nextLink).toContain('sort=author_desc');
+      const prevLink = xml.match(/<link rel="previous"[^>]*\/>/)![0];
+      expect(prevLink).toContain('collectionId=7');
+      expect(prevLink).toContain('sort=author_desc');
+    });
+
+    it('per-collection feed marks the active facet from the sort override', () => {
+      const service = makeService();
+      const xml = service.generateAcquisitionFeed(
+        'Catalog',
+        'urn:bookorbit:catalog:collectionId:7',
+        [],
+        100,
+        1,
+        10,
+        `${BASE}/catalog?collectionId=7&page=1&size=10&sort=published_desc`,
+        'test-token',
+        'published_desc',
+      );
+
+      const activeLinks = xml.match(/opds:activeFacet="true"/g) ?? [];
+      expect(activeLinks).toHaveLength(1);
+      const activeFacet = OPDS_FACET_SORTS.find((f) => f.sort === 'published_desc')!;
+      const activeLinkRe = new RegExp(`<link[^>]*collectionId=7[^>]*sort=${activeFacet.value}[^>]*opds:activeFacet="true"[^>]*/>`);
+      expect(xml).toMatch(activeLinkRe);
+    });
+
+    it.each([
+      ['collectionId', `${BASE}/catalog?collectionId=7&page=2&size=10&sort=title_asc`, 'collectionId=7'],
+      ['libraryId', `${BASE}/catalog?libraryId=3&page=2&size=10&sort=title_asc`, 'libraryId=3'],
+      ['seriesId', `${BASE}/catalog?seriesId=4&page=2&size=10&sort=title_asc`, 'seriesId=4'],
+      ['smartScopeId', `${BASE}/catalog?smartScopeId=9&page=2&size=10&sort=title_asc`, 'smartScopeId=9'],
+      ['author', `${BASE}/catalog?author=Frank%20Herbert&page=2&size=10&sort=title_asc`, 'author=Frank'],
+    ])('shared /catalog route carries the %s filter through facet and pagination links', (_name, selfPath, needle) => {
+      const service = makeService();
+      const xml = service.generateAcquisitionFeed('Catalog', 'urn:bookorbit:catalog', [], 100, 2, 10, selfPath, 'test-token', 'title_asc');
+
+      const facetLinks = xml.match(/<link rel="http:\/\/opds-spec\.org\/facet"[^>]*\/>/g) ?? [];
+      expect(facetLinks).toHaveLength(OPDS_FACET_SORTS.length);
+      for (const link of facetLinks) {
+        expect(link).toContain(needle);
+        expect(link).toContain('page=1');
+      }
+
+      const nextLink = xml.match(/<link rel="next"[^>]*\/>/)![0];
+      expect(nextLink).toContain(needle);
+      expect(nextLink).toContain('sort=title_asc');
+    });
+
     it('omits Sort facets when activeSort is not provided', () => {
       const service = makeService();
       const xml = service.generateAcquisitionFeed('Recent', 'urn:bookorbit:recent', [], 100, 1, 10, `${BASE}/recent?page=1&size=10`, 'test-token');
