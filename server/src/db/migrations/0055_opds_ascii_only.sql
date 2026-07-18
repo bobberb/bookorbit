@@ -1,0 +1,1 @@
+ALTER TABLE "libraries" ADD COLUMN "opds_ascii_only" boolean DEFAULT false NOT NULL;

@@ -28,6 +28,7 @@ import type { OpdsRequestUser } from './opds-auth.guard';
 import { OpdsEnabledGuard } from './opds-enabled.guard';
 import { OpdsUser } from './opds-user.decorator';
 import { OpdsBookService } from './opds-book.service';
+import type { OpdsBookEntry } from './opds-book.service';
 import { OpdsService } from './opds.service';
 import { parseSortParam } from './opds-sort.helpers';
 import { BookService } from '../book/book.service';
@@ -153,6 +154,7 @@ export class OpdsController {
     const feedId = filterSuffix ? `urn:bookorbit:catalog:${filterSuffix}` : 'urn:bookorbit:catalog';
 
     const feedTitle = q ? `Search: ${q}` : 'Catalog';
+    const asciiByLibrary = await this.buildAsciiByLibrary(entries);
     const xml = this.opdsService.generateAcquisitionFeed(
       feedTitle,
       feedId,
@@ -163,6 +165,7 @@ export class OpdsController {
       selfPath,
       user.coverToken,
       sortOrder,
+      asciiByLibrary,
     );
     this.sendXml(reply!, xml, OPDS_MIME_ACQ);
   }
@@ -186,6 +189,7 @@ export class OpdsController {
       user.contentFilters,
     );
     const selfPath = `/api/v1/opds/recent?page=${clampedPage}&size=${clampedSize}`;
+    const asciiByLibrary = await this.buildAsciiByLibrary(entries);
     const xml = this.opdsService.generateAcquisitionFeed(
       'Recent Books',
       'urn:bookorbit:recent',
@@ -195,6 +199,8 @@ export class OpdsController {
       clampedSize,
       selfPath,
       user.coverToken,
+      undefined,
+      asciiByLibrary,
     );
     this.sendXml(reply!, xml, OPDS_MIME_ACQ);
   }
@@ -202,6 +208,7 @@ export class OpdsController {
   @Get('surprise')
   async surprise(@OpdsUser() user: OpdsRequestUser, @Res() reply: FastifyReply) {
     const entries = await this.opdsBookService.getRandomBooks(user.userId, 25, user.isSuperuser, user.contentFilters);
+    const asciiByLibrary = await this.buildAsciiByLibrary(entries);
     const xml = this.opdsService.generateAcquisitionFeed(
       'Random Books',
       'urn:bookorbit:surprise',
@@ -211,6 +218,8 @@ export class OpdsController {
       25,
       '/api/v1/opds/surprise',
       user.coverToken,
+      undefined,
+      asciiByLibrary,
     );
     this.sendXml(reply, xml, OPDS_MIME_ACQ);
   }
@@ -307,6 +316,13 @@ export class OpdsController {
 
   private sendXml(reply: FastifyReply, xml: string, mimeType: string) {
     reply.type(`${mimeType}; charset=utf-8`).send(xml);
+  }
+
+  // A single feed spans multiple libraries, so resolve the ASCII-only flag per entry.
+  // One query over the distinct library IDs already present in the page avoids N+1.
+  private async buildAsciiByLibrary(entries: OpdsBookEntry[]): Promise<Map<number, boolean>> {
+    const libraryIds = [...new Set(entries.map((e) => e.libraryId))];
+    return this.opdsBookService.getOpdsAsciiOnlyByLibrary(libraryIds);
   }
 
   private parseOptionalPositiveInt(name: string, value?: string): number | undefined {

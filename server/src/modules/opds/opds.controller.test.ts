@@ -41,6 +41,7 @@ function makeController() {
     getBooksPage: vi.fn().mockResolvedValue({ entries: [{ id: 1 }], total: 1 }),
     getRecentBooksPage: vi.fn().mockResolvedValue({ entries: [{ id: 2 }], total: 1 }),
     getRandomBooks: vi.fn().mockResolvedValue([{ id: 3 }]),
+    getOpdsAsciiOnlyByLibrary: vi.fn().mockResolvedValue(new Map()),
     validateBookAccess: vi.fn().mockResolvedValue(undefined),
     getBookFiles: vi.fn().mockResolvedValue({
       absolutePath: '/books/library/book.epub',
@@ -146,6 +147,7 @@ describe('OpdsController', () => {
       expect.stringContaining('sort=author_desc'),
       'token',
       'author_desc',
+      expect.any(Map),
     );
   });
 
@@ -178,6 +180,7 @@ describe('OpdsController', () => {
       expect.stringContaining('sort=published_desc'),
       expect.anything(),
       'published_desc',
+      expect.any(Map),
     );
 
     const unknown = makeController();
@@ -213,6 +216,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      expect.any(Map),
     );
 
     const libraryOnly = makeController();
@@ -227,6 +231,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      expect.any(Map),
     );
 
     const searchOnly = makeController();
@@ -241,6 +246,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      expect.any(Map),
     );
 
     const multiFilter = makeController();
@@ -255,6 +261,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      expect.any(Map),
     );
   });
 
@@ -289,6 +296,8 @@ describe('OpdsController', () => {
       25,
       '/api/v1/opds/surprise',
       'cover-token',
+      undefined,
+      expect.any(Map),
     );
   });
 

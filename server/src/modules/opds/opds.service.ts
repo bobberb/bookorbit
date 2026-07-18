@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { esc, fileMimeType, OPDS_MIME_ACQ, OPDS_MIME_NAV, OPDS_MIME_SEARCH, xmlEl, xmlFacetLink, xmlLink } from './opds-xml.helpers';
+import { encodeText, esc, fileMimeType, OPDS_MIME_ACQ, OPDS_MIME_NAV, OPDS_MIME_SEARCH, xmlEl, xmlFacetLink, xmlLink } from './opds-xml.helpers';
 import type { OpdsBookEntry, OpdsSortOrder } from './opds-book.service';
 import { OPDS_FACET_SORTS } from './opds-sort.helpers';
 
@@ -96,6 +96,7 @@ export class OpdsService {
     selfPath: string,
     coverToken: string,
     activeSort?: OpdsSortOrder,
+    asciiByLibrary: Map<number, boolean> = new Map(),
   ): string {
     const now = new Date().toISOString();
     const totalPages = Math.max(1, Math.ceil(total / size));
@@ -133,7 +134,7 @@ export class OpdsService {
       }
     }
 
-    const entries = books.map((book) => this.bookEntry(book, coverToken));
+    const entries = books.map((book) => this.bookEntry(book, coverToken, asciiByLibrary.get(book.libraryId) ?? false));
 
     return this.wrapFeed(title, feedId, now, links, entries, total);
   }
@@ -151,19 +152,19 @@ export class OpdsService {
     ].join('\n');
   }
 
-  private bookEntry(book: OpdsBookEntry, coverToken: string): string {
+  private bookEntry(book: OpdsBookEntry, coverToken: string, asciiOnly: boolean): string {
     const lines: string[] = [];
     lines.push('<entry>');
-    lines.push(`  ${xmlEl('title', book.title)}`);
+    lines.push(`  ${xmlEl('title', encodeText(book.title, asciiOnly))}`);
     lines.push(`  ${xmlEl('id', `urn:bookorbit:book:${book.id}`)}`);
     lines.push(`  ${xmlEl('updated', book.updatedAt.toISOString())}`);
 
     for (const author of book.authors) {
-      lines.push(`  <author>${xmlEl('name', author)}</author>`);
+      lines.push(`  <author>${xmlEl('name', encodeText(author, asciiOnly))}</author>`);
     }
 
     if (book.description) {
-      lines.push(`  <content type="text">${esc(book.description)}</content>`);
+      lines.push(`  <content type="text">${esc(encodeText(book.description, asciiOnly))}</content>`);
     } else {
       lines.push('  <content type="text"/>');
     }
@@ -172,7 +173,7 @@ export class OpdsService {
       const seriesHref =
         book.seriesId != null ? `${BASE}/catalog?seriesId=${book.seriesId}` : `${BASE}/catalog?series=${encodeURIComponent(book.seriesName)}`;
       lines.push(
-        `  <link rel="http://opds-spec.org/sort/series" href="${esc(seriesHref)}" title="${esc(book.seriesName)}${book.seriesIndex != null ? ` #${book.seriesIndex}` : ''}"/>`,
+        `  <link rel="http://opds-spec.org/sort/series" href="${esc(seriesHref)}" title="${esc(encodeText(book.seriesName, asciiOnly))}${book.seriesIndex != null ? ` #${book.seriesIndex}` : ''}"/>`,
       );
     }
 
@@ -180,7 +181,7 @@ export class OpdsService {
       lines.push(`  ${xmlEl('dc:language', book.language)}`);
     }
     if (book.publisher) {
-      lines.push(`  ${xmlEl('dc:publisher', book.publisher)}`);
+      lines.push(`  ${xmlEl('dc:publisher', encodeText(book.publisher, asciiOnly))}`);
     }
     if (book.isbn13) {
       lines.push(`  ${xmlEl('dc:identifier', `urn:isbn:${esc(book.isbn13)}`)}`);

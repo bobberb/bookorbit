@@ -169,4 +169,8 @@ export class UpdateLibraryDto {
   @IsOptional()
   @IsBoolean()
   fileRenameEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  opdsAsciiOnly?: boolean;
 }

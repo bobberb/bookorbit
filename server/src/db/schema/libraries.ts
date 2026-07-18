@@ -59,6 +59,9 @@ export const libraries = pgTable(
     fileWriteAudioMaxFileSizeMb: integer('file_write_audio_max_file_size_mb').notNull().default(500),
     fileRenameEnabled: boolean('file_rename_enabled').notNull().default(false),
 
+    // Transliterate OPDS text to ASCII for legacy e-readers that cannot render Unicode
+    opdsAsciiOnly: boolean('opds_ascii_only').notNull().default(false),
+
     // File naming pattern for uploads (null = use global default)
     fileNamingPattern: varchar('file_naming_pattern', { length: 500 }),
 

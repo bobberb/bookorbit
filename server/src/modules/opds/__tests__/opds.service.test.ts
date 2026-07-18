@@ -13,6 +13,7 @@ const BASE = '/api/v1/opds';
 function sampleBook(overrides?: Partial<OpdsBookEntry>): OpdsBookEntry {
   return {
     id: 1,
+    libraryId: 1,
     title: 'Mistborn: The Final Empire',
     folderPath: '/books/mistborn',
     addedAt: new Date('2025-01-01'),
@@ -424,6 +425,111 @@ describe('OpdsService', () => {
       const xml = service.generateAcquisitionFeed('Recent', 'urn:bookorbit:recent', [], 100, 1, 10, `${BASE}/recent?page=1&size=10`, 'test-token');
 
       expect(xml).not.toContain('opds:facetGroup="Sort"');
+    });
+
+    describe('per-library ASCII-only transliteration', () => {
+      it('transliterates title and author for a book in an ASCII-only library', () => {
+        const service = makeService();
+        const book = sampleBook({
+          libraryId: 7,
+          title: 'Cortázar: Rayuela',
+          authors: ['Émile Zola'],
+          seriesName: null,
+          seriesIndex: null,
+        });
+        const xml = service.generateAcquisitionFeed(
+          'Catalog',
+          'urn:bookorbit:catalog',
+          [book],
+          1,
+          1,
+          50,
+          `${BASE}/catalog?page=1&size=50`,
+          'test-token',
+          undefined,
+          new Map([[7, true]]),
+        );
+
+        expect(xml).toContain('<title>Cortazar: Rayuela</title>');
+        expect(xml).toContain('<name>Emile Zola</name>');
+        expect(xml).not.toContain('Cortázar');
+        expect(xml).not.toContain('Émile');
+      });
+
+      it('leaves Unicode intact for a book in a non-ASCII-only library', () => {
+        const service = makeService();
+        const book = sampleBook({
+          libraryId: 7,
+          title: 'Cortázar: Rayuela',
+          authors: ['Émile Zola'],
+          seriesName: null,
+          seriesIndex: null,
+        });
+        const xml = service.generateAcquisitionFeed(
+          'Catalog',
+          'urn:bookorbit:catalog',
+          [book],
+          1,
+          1,
+          50,
+          `${BASE}/catalog?page=1&size=50`,
+          'test-token',
+          undefined,
+          new Map([[7, false]]),
+        );
+
+        expect(xml).toContain('<title>Cortázar: Rayuela</title>');
+        expect(xml).toContain('<name>Émile Zola</name>');
+      });
+
+      it('encodes each entry per its own library in a mixed feed', () => {
+        const service = makeService();
+        const asciiBook = sampleBook({
+          id: 100,
+          libraryId: 1,
+          title: 'ノルウェイの森',
+          authors: ['村上春樹'],
+          seriesName: null,
+          seriesIndex: null,
+          files: [{ id: 1000, format: 'epub' }],
+        });
+        const unicodeBook = sampleBook({
+          id: 200,
+          libraryId: 2,
+          title: 'ノルウェイの森',
+          authors: ['村上春樹'],
+          seriesName: null,
+          seriesIndex: null,
+          files: [{ id: 2000, format: 'epub' }],
+        });
+        const xml = service.generateAcquisitionFeed(
+          'Catalog',
+          'urn:bookorbit:catalog',
+          [asciiBook, unicodeBook],
+          2,
+          1,
+          50,
+          `${BASE}/catalog?page=1&size=50`,
+          'test-token',
+          undefined,
+          new Map([
+            [1, true],
+            [2, false],
+          ]),
+        );
+
+        const parsed = new XMLParser({ ignoreAttributes: false, isArray: (name) => name === 'entry' }).parse(xml);
+        const entries = parsed.feed.entry as Array<Record<string, unknown>>;
+        const byId = new Map(entries.map((entry) => [entry.id, entry]));
+
+        const asciiEntry = byId.get('urn:bookorbit:book:100')!;
+        const unicodeEntry = byId.get('urn:bookorbit:book:200')!;
+
+        const asciiTitle = String(asciiEntry.title);
+        expect([...asciiTitle].every((ch) => ch.codePointAt(0)! <= 0x7f)).toBe(true);
+        expect(asciiTitle.length).toBeGreaterThan(0);
+        expect(unicodeEntry.title).toBe('ノルウェイの森');
+      });
     });
   });
 

@@ -99,6 +99,7 @@ const LIKE_SPECIAL_CHARS = /[%_\\]/g;
 
 export interface OpdsBookEntry {
   id: number;
+  libraryId: number;
   title: string;
   folderPath: string;
   addedAt: Date;
@@ -129,6 +130,15 @@ export class OpdsBookService {
     }
     const rows = await this.db.select({ libraryId: userLibraryAccess.libraryId }).from(userLibraryAccess).where(eq(userLibraryAccess.userId, userId));
     return rows.map((r) => r.libraryId);
+  }
+
+  async getOpdsAsciiOnlyByLibrary(libraryIds: number[]): Promise<Map<number, boolean>> {
+    if (libraryIds.length === 0) return new Map();
+    const rows = await this.db
+      .select({ id: libraries.id, opdsAsciiOnly: libraries.opdsAsciiOnly })
+      .from(libraries)
+      .where(inArray(libraries.id, libraryIds));
+    return new Map(rows.map((r) => [r.id, r.opdsAsciiOnly]));
   }
 
   async getAccessibleLibraries(userId: number, isSuperuser = false) {
@@ -628,6 +638,7 @@ export class OpdsBookService {
       this.db
         .select({
           id: books.id,
+          libraryId: books.libraryId,
           folderPath: books.folderPath,
           addedAt: books.addedAt,
           bookUpdatedAt: books.updatedAt,
@@ -682,6 +693,7 @@ export class OpdsBookService {
         const contextSeries = contextSeriesByBook.get(row.id);
         return {
           id: row.id,
+          libraryId: row.libraryId,
           title: row.title ?? row.folderPath.split('/').pop() ?? 'Untitled',
           folderPath: row.folderPath,
           addedAt: row.addedAt,

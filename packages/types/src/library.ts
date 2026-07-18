@@ -73,6 +73,7 @@ export interface Library {
   fileWriteAudioEnabled: boolean;
   fileWriteAudioMaxFileSizeMb: number;
   fileRenameEnabled: boolean;
+  opdsAsciiOnly: boolean;
   folders: LibraryFolder[];
   bookCount?: number;
   createdAt: string;

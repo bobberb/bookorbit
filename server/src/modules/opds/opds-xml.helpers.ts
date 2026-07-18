@@ -1,3 +1,16 @@
+import anyAscii from 'any-ascii';
+
+// Transliterate non-ASCII text to the nearest readable ASCII for legacy e-readers
+// that cannot render Unicode (e.g. "Cortazar", "Emile", CJK -> romaji). any-ascii
+// leaves ASCII input untouched; the trailing strip removes anything it could not map
+// so the XML never carries surviving non-ASCII. Must run BEFORE esc() so the raw
+// (un-escaped) string is transliterated.
+export function encodeText(s: string | null | undefined, asciiOnly: boolean): string {
+  if (!s || !asciiOnly) return s ?? '';
+  // eslint-disable-next-line no-control-regex -- strip any residual non-ASCII any-ascii left unmapped
+  return anyAscii(s).replace(/[^\x00-\x7F]/g, '');
+}
+
 // Code points the XML 1.0 Char production forbids: C0 controls except tab/LF/CR
 // and the noncharacters U+FFFE/U+FFFF. Ebook metadata extracted from EPUB/PDF/MOBI
 // often carries these; leaving them in produces a not-well-formed feed that lenient
