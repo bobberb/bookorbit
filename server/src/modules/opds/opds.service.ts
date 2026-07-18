@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
-import { esc, fileMimeType, OPDS_MIME_ACQ, OPDS_MIME_NAV, OPDS_MIME_SEARCH, xmlEl, xmlLink } from './opds-xml.helpers';
-import type { OpdsBookEntry } from './opds-book.service';
+import { esc, fileMimeType, OPDS_MIME_ACQ, OPDS_MIME_NAV, OPDS_MIME_SEARCH, xmlEl, xmlFacetLink, xmlLink } from './opds-xml.helpers';
+import type { OpdsBookEntry, OpdsSortOrder } from './opds-book.service';
+import { OPDS_FACET_SORTS } from './opds-sort.helpers';
 
 const BASE = '/api/v1/opds';
 
@@ -94,6 +95,7 @@ export class OpdsService {
     size: number,
     selfPath: string,
     coverToken: string,
+    activeSort?: OpdsSortOrder,
   ): string {
     const now = new Date().toISOString();
     const totalPages = Math.max(1, Math.ceil(total / size));
@@ -116,6 +118,19 @@ export class OpdsService {
     if (page < totalPages) {
       links.push(xmlLink('next', pageUrl(page + 1), OPDS_MIME_ACQ));
       links.push(xmlLink('last', pageUrl(totalPages), OPDS_MIME_ACQ));
+    }
+
+    // Facet URLs change sort and reset to page 1, so build a fresh URL per link
+    // from selfPath (which preserves existing filters) rather than mutating the
+    // shared `url` above, whose sort/page must stay intact for next/prev/first/last.
+    if (activeSort !== undefined) {
+      for (const facet of OPDS_FACET_SORTS) {
+        const facetUrl = new URL(selfPath, 'http://localhost');
+        facetUrl.searchParams.set('sort', facet.value);
+        facetUrl.searchParams.set('page', '1');
+        const href = `${facetUrl.pathname}?${facetUrl.searchParams.toString()}`;
+        links.push(xmlFacetLink(href, facet.label, 'Sort', facet.sort === activeSort));
+      }
     }
 
     const entries = books.map((book) => this.bookEntry(book, coverToken));

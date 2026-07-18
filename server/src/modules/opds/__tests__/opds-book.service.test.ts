@@ -410,6 +410,8 @@ describe('OpdsBookService', () => {
       'recently_read_asc',
       'title_asc',
       'title_desc',
+      'published_desc',
+      'published_asc',
       'author_asc',
       'author_desc',
       'series_asc',

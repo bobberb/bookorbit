@@ -143,9 +143,59 @@ describe('OpdsController', () => {
       1,
       1,
       100,
-      expect.stringContaining('/api/v1/opds/catalog?'),
+      expect.stringContaining('sort=author_desc'),
       'token',
+      'author_desc',
     );
+  });
+
+  it('catalog applies ?sort= override and falls back to stored sort when absent or unknown', async () => {
+    const override = makeController();
+    const user = { userId: 7, isSuperuser: false, sortOrder: 'recent', coverToken: 'token' } as never;
+
+    await override.controller.catalog(
+      user,
+      1,
+      50,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      makeReply(),
+      undefined,
+      'published_desc',
+    );
+    expect(override.opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'published_desc', 1, 50, {}, false, undefined);
+    expect(override.opdsService.generateAcquisitionFeed).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining('sort=published_desc'),
+      expect.anything(),
+      'published_desc',
+    );
+
+    const unknown = makeController();
+    await unknown.controller.catalog(
+      user,
+      1,
+      50,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      makeReply(),
+      undefined,
+      'nonsense',
+    );
+    expect(unknown.opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'recent', 1, 50, {}, false, undefined);
   });
 
   it('catalog generates unique feed ids per filter context', async () => {
@@ -156,6 +206,7 @@ describe('OpdsController', () => {
     expect(noFilters.opdsService.generateAcquisitionFeed).toHaveBeenCalledWith(
       expect.anything(),
       'urn:bookorbit:catalog',
+      expect.anything(),
       expect.anything(),
       expect.anything(),
       expect.anything(),
@@ -175,6 +226,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      expect.anything(),
     );
 
     const searchOnly = makeController();
@@ -188,6 +240,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      expect.anything(),
     );
 
     const multiFilter = makeController();
@@ -195,6 +248,7 @@ describe('OpdsController', () => {
     expect(multiFilter.opdsService.generateAcquisitionFeed).toHaveBeenCalledWith(
       expect.anything(),
       'urn:bookorbit:catalog:author:Frank%20Herbert:libraryId:2',
+      expect.anything(),
       expect.anything(),
       expect.anything(),
       expect.anything(),
