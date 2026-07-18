@@ -4825,15 +4825,15 @@
           "hint": "Kadar ima knjiga več oblik, ima prednost oblika, ki je najvišje na seznamu."
         },
         "opdsEncoding": {
-          "title": "OPDS text encoding",
-          "hint": "Transliterate this library's OPDS feed text to ASCII for older e-readers that can't display Unicode.",
+          "title": "Kodiranje besedila OPDS",
+          "hint": "Pretvori besedilo vira OPDS te knjižnice v ASCII za starejše e-bralnike, ki ne morejo prikazati Unicode.",
           "unicode": {
-            "title": "Unicode (default)",
-            "hint": "Keep original characters, including accents and non-Latin scripts, in the OPDS feed."
+            "title": "Unicode (privzeto)",
+            "hint": "Ohrani izvirne znake, vključno z naglasi in nelatiničnimi pisavami, v viru OPDS."
           },
           "ascii": {
-            "title": "ASCII only",
-            "hint": "Convert feed text to plain ASCII so legacy e-readers can display it correctly."
+            "title": "Samo ASCII",
+            "hint": "Pretvori besedilo vira v navadni ASCII, da ga starejši e-bralniki pravilno prikažejo."
           }
         }
       },

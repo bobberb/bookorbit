@@ -4825,15 +4825,15 @@
           "hint": "Wanneer een boek meerdere formaten heeft, heeft het formaat dat het hoogst in de lijst staat voorrang."
         },
         "opdsEncoding": {
-          "title": "OPDS text encoding",
-          "hint": "Transliterate this library's OPDS feed text to ASCII for older e-readers that can't display Unicode.",
+          "title": "OPDS-tekstcodering",
+          "hint": "Zet de OPDS-feedtekst van deze bibliotheek om naar ASCII voor oudere e-readers die geen Unicode kunnen weergeven.",
           "unicode": {
-            "title": "Unicode (default)",
-            "hint": "Keep original characters, including accents and non-Latin scripts, in the OPDS feed."
+            "title": "Unicode (standaard)",
+            "hint": "Behoud oorspronkelijke tekens, inclusief accenten en niet-Latijnse schriften, in de OPDS-feed."
           },
           "ascii": {
-            "title": "ASCII only",
-            "hint": "Convert feed text to plain ASCII so legacy e-readers can display it correctly."
+            "title": "Alleen ASCII",
+            "hint": "Zet feedtekst om naar platte ASCII zodat oudere e-readers deze correct kunnen weergeven."
           }
         }
       },

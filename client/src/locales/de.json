@@ -4825,15 +4825,15 @@
           "hint": "Wenn ein Buch mehrere Formate hat, wird das in der Liste höchste Format bevorzugt."
         },
         "opdsEncoding": {
-          "title": "OPDS text encoding",
-          "hint": "Transliterate this library's OPDS feed text to ASCII for older e-readers that can't display Unicode.",
+          "title": "OPDS-Textkodierung",
+          "hint": "Wandelt den OPDS-Feed-Text dieser Bibliothek in ASCII um, für ältere E-Reader, die kein Unicode darstellen können.",
           "unicode": {
-            "title": "Unicode (default)",
-            "hint": "Keep original characters, including accents and non-Latin scripts, in the OPDS feed."
+            "title": "Unicode (Standard)",
+            "hint": "Originalzeichen im OPDS-Feed beibehalten, einschließlich Akzenten und nicht-lateinischen Schriften."
           },
           "ascii": {
-            "title": "ASCII only",
-            "hint": "Convert feed text to plain ASCII so legacy e-readers can display it correctly."
+            "title": "Nur ASCII",
+            "hint": "Feed-Text in reines ASCII umwandeln, damit ältere E-Reader ihn korrekt anzeigen."
           }
         }
       },

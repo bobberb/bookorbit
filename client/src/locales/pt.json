@@ -4825,15 +4825,15 @@
           "hint": "Quando um livro possui vários formatos, o formato mais alto na lista é o preferido."
         },
         "opdsEncoding": {
-          "title": "OPDS text encoding",
-          "hint": "Transliterate this library's OPDS feed text to ASCII for older e-readers that can't display Unicode.",
+          "title": "Codificação de texto OPDS",
+          "hint": "Translitera o texto do feed OPDS desta biblioteca para ASCII, para e-readers antigos que não conseguem apresentar Unicode.",
           "unicode": {
-            "title": "Unicode (default)",
-            "hint": "Keep original characters, including accents and non-Latin scripts, in the OPDS feed."
+            "title": "Unicode (predefinição)",
+            "hint": "Manter os caracteres originais, incluindo acentos e sistemas de escrita não latinos, no feed OPDS."
           },
           "ascii": {
-            "title": "ASCII only",
-            "hint": "Convert feed text to plain ASCII so legacy e-readers can display it correctly."
+            "title": "Apenas ASCII",
+            "hint": "Converter o texto do feed para ASCII simples para que os e-readers antigos o apresentem corretamente."
           }
         }
       },
