@@ -45,6 +45,7 @@ function blankForm() {
     fileWriteAudioEnabled: true,
     fileWriteAudioMaxFileSizeMb: 500,
     fileRenameEnabled: false,
+    opdsAsciiOnly: false,
   }
 }
 
@@ -121,6 +122,7 @@ export function useLibraryCreator() {
     form.fileWriteAudioEnabled = library.fileWriteAudioEnabled
     form.fileWriteAudioMaxFileSizeMb = library.fileWriteAudioMaxFileSizeMb
     form.fileRenameEnabled = library.fileRenameEnabled
+    form.opdsAsciiOnly = library.opdsAsciiOnly
     mode.value = 'edit'
     editingLibraryId.value = library.id
     prescanResult.value = null

@@ -4781,6 +4781,18 @@
         "formatPriority": {
           "title": "Format priority",
           "hint": "When a book has multiple formats, the format highest in the list is preferred."
+        },
+        "opdsEncoding": {
+          "title": "OPDS text encoding",
+          "hint": "Transliterate this library's OPDS feed text to ASCII for older e-readers that can't display Unicode.",
+          "unicode": {
+            "title": "Unicode (default)",
+            "hint": "Keep original characters, including accents and non-Latin scripts, in the OPDS feed."
+          },
+          "ascii": {
+            "title": "ASCII only",
+            "hint": "Convert feed text to plain ASCII so legacy e-readers can display it correctly."
+          }
         }
       },
       "fileWrite": {

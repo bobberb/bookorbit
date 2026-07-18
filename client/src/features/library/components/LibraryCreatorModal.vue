@@ -151,7 +151,7 @@ const sectionProps = computed(() => ({
     allowedFormats: form.allowedFormats,
     excludePatterns: form.excludePatterns,
   },
-  metadata: { metadataPrecedence: form.metadataPrecedence, formatPriority: form.formatPriority },
+  metadata: { metadataPrecedence: form.metadataPrecedence, formatPriority: form.formatPriority, opdsAsciiOnly: form.opdsAsciiOnly },
   reading: {
     readingThreshold: form.readingThreshold,
     markAsFinishedPercentComplete: form.markAsFinishedPercentComplete,
@@ -264,6 +264,7 @@ const sectionListeners = {
   'update:organizationMode': handleOrganizationModeUpdate,
   'update:metadataPrecedence': (value: string[]) => (form.metadataPrecedence = value),
   'update:formatPriority': (value: string[]) => (form.formatPriority = value),
+  'update:opdsAsciiOnly': (value: boolean) => (form.opdsAsciiOnly = value),
   'update:allowedFormats': (value: string[]) => (form.allowedFormats = value),
   'update:excludePatterns': (value: string[]) => (form.excludePatterns = value),
   'update:readingThreshold': (value: number) => (form.readingThreshold = value),

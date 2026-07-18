@@ -9,12 +9,22 @@ const { t } = useI18n()
 const props = defineProps<{
   metadataPrecedence: string[]
   formatPriority: string[]
+  opdsAsciiOnly: boolean
 }>()
 
 const emit = defineEmits<{
   'update:metadataPrecedence': [value: string[]]
   'update:formatPriority': [value: string[]]
+  'update:opdsAsciiOnly': [value: boolean]
 }>()
+
+function selectOpdsUnicode() {
+  emit('update:opdsAsciiOnly', false)
+}
+
+function selectOpdsAscii() {
+  emit('update:opdsAsciiOnly', true)
+}
 
 function useDragList(getList: () => string[], onUpdate: (v: string[]) => void) {
   const dragFrom = ref<number | null>(null)
@@ -170,6 +180,55 @@ function moveFormat(index: number, direction: -1 | 1) {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- OPDS text encoding -->
+    <div>
+      <p class="text-[11px] font-semibold uppercase tracking-widest text-foreground/80 mb-1">
+        {{ t('library.creator.metadata.opdsEncoding.title') }}
+      </p>
+      <p class="text-xs text-muted-foreground mb-3">{{ t('library.creator.metadata.opdsEncoding.hint') }}</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          type="button"
+          class="text-left rounded-lg border p-4 transition-colors"
+          :class="!opdsAsciiOnly ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card hover:border-primary/40'"
+          @click="selectOpdsUnicode"
+        >
+          <div class="flex items-center gap-2 mb-1.5">
+            <span
+              class="w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center"
+              :class="!opdsAsciiOnly ? 'border-primary' : 'border-muted-foreground/40'"
+            >
+              <span v-if="!opdsAsciiOnly" class="w-1.5 h-1.5 rounded-full bg-primary" />
+            </span>
+            <span class="text-sm font-semibold text-foreground">{{ t('library.creator.metadata.opdsEncoding.unicode.title') }}</span>
+          </div>
+          <p class="text-xs text-muted-foreground leading-relaxed">
+            {{ t('library.creator.metadata.opdsEncoding.unicode.hint') }}
+          </p>
+        </button>
+
+        <button
+          type="button"
+          class="text-left rounded-lg border p-4 transition-colors"
+          :class="opdsAsciiOnly ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card hover:border-primary/40'"
+          @click="selectOpdsAscii"
+        >
+          <div class="flex items-center gap-2 mb-1.5">
+            <span
+              class="w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center"
+              :class="opdsAsciiOnly ? 'border-primary' : 'border-muted-foreground/40'"
+            >
+              <span v-if="opdsAsciiOnly" class="w-1.5 h-1.5 rounded-full bg-primary" />
+            </span>
+            <span class="text-sm font-semibold text-foreground">{{ t('library.creator.metadata.opdsEncoding.ascii.title') }}</span>
+          </div>
+          <p class="text-xs text-muted-foreground leading-relaxed">
+            {{ t('library.creator.metadata.opdsEncoding.ascii.hint') }}
+          </p>
+        </button>
       </div>
     </div>
   </div>
