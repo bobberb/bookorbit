@@ -348,6 +348,64 @@ describe('BookRepository', () => {
     expect(query.sql).not.toContain('FROM "collection_books"');
   });
 
+  it('computes row and book totals before paging collapsed cards', async () => {
+    const execute = vi.fn().mockResolvedValue({ rows: [] });
+    const repo = new BookRepository({ execute } as never);
+
+    await repo.findCardsCollapsed({
+      where: undefined,
+      sort: [{ field: 'title', dir: 'asc' }],
+      limit: 20,
+      offset: 40,
+      userId: 7,
+    });
+
+    const query = new PgDialect().sqlToQuery(execute.mock.calls[0]![0]);
+    expect(query.sql).toContain('COUNT(*) AS total_count');
+    expect(query.sql).toContain('COALESCE(SUM(COALESCE(book_count, 1)), 0) AS book_total');
+    expect(query.sql).toContain('LEFT JOIN LATERAL');
+    expect(query.sql).toMatch(/LIMIT \$\d+ OFFSET \$\d+/);
+    expect(query.params).toEqual(expect.arrayContaining([20, 40]));
+  });
+
+  it('returns totals from the sentinel row when a collapsed page is empty', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      rows: [{ id: null, total_count: '30', book_total: '200' }],
+    });
+    const repo = new BookRepository({ execute } as never);
+
+    const result = await repo.findCardsCollapsed({
+      where: undefined,
+      sort: [{ field: 'title', dir: 'asc' }],
+      limit: 50,
+      offset: 1_000,
+      userId: 7,
+    });
+
+    expect(result.rows).toEqual([]);
+    expect(result.total).toBe(30);
+    expect(result.bookTotal).toBe(200);
+  });
+
+  it('returns zero totals when the collapsed scope has no books', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      rows: [{ id: null, total_count: '0', book_total: '0' }],
+    });
+    const repo = new BookRepository({ execute } as never);
+
+    const result = await repo.findCardsCollapsed({
+      where: undefined,
+      sort: [{ field: 'title', dir: 'asc' }],
+      limit: 50,
+      offset: 0,
+      userId: 7,
+    });
+
+    expect(result.rows).toEqual([]);
+    expect(result.total).toBe(0);
+    expect(result.bookTotal).toBe(0);
+  });
+
   it('rejects an unusable collection id on the collapsed path', async () => {
     const execute = vi.fn().mockResolvedValue({ rows: [] });
     const repo = new BookRepository({ execute } as never);
