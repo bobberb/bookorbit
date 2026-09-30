@@ -85,7 +85,7 @@ export class OpdsService {
     );
   }
 
-  generateAuthorsNavigation(items: { name: string; bookCount: number }[]): string {
+  generateAuthorsNavigation(items: { name: string; bookCount: number }[], page = 1, size = items.length, hasNext = false, total?: number): string {
     const now = new Date().toISOString();
     const entries = items.map((a) =>
       this.navEntry(
@@ -97,13 +97,23 @@ export class OpdsService {
         OPDS_MIME_ACQ,
       ),
     );
-    return this.wrapFeed(
-      'Authors',
-      'urn:bookorbit:authors',
-      now,
-      [xmlLink('self', `${BASE}/authors`, OPDS_MIME_NAV), xmlLink('start', BASE, OPDS_MIME_NAV), ...this.searchLinks()],
-      entries,
-    );
+
+    const selfPath = `${BASE}/authors?page=${page}&size=${size}`;
+    const links = [xmlLink('self', selfPath, OPDS_MIME_NAV), xmlLink('start', BASE, OPDS_MIME_NAV), ...this.searchLinks()];
+    const pageUrl = (p: number) => `${BASE}/authors?page=${p}&size=${size}`;
+    if (page > 1) {
+      links.push(xmlLink('first', pageUrl(1), OPDS_MIME_NAV));
+      links.push(xmlLink('previous', pageUrl(page - 1), OPDS_MIME_NAV));
+    }
+    if (hasNext) {
+      links.push(xmlLink('next', pageUrl(page + 1), OPDS_MIME_NAV));
+    }
+    if (total !== undefined) {
+      const lastPage = Math.max(1, Math.ceil(total / size));
+      links.push(xmlLink('last', pageUrl(lastPage), OPDS_MIME_NAV));
+    }
+
+    return this.wrapFeed('Authors', 'urn:bookorbit:authors', now, links, entries);
   }
 
   generateSeriesNavigation(items: { id?: number; name: string; bookCount: number }[]): string {
@@ -137,10 +147,15 @@ export class OpdsService {
     selfPath: string,
     coverToken: string,
     activeSort?: OpdsSortOrder,
+    upPath?: string,
   ): string {
     const now = new Date().toISOString();
     const totalPages = Math.max(1, Math.ceil(total / size));
     const links = [xmlLink('self', selfPath, OPDS_MIME_ACQ), xmlLink('start', BASE, OPDS_MIME_NAV), ...this.searchLinks()];
+
+    if (upPath) {
+      links.push(xmlLink('up', upPath, OPDS_MIME_NAV));
+    }
 
     const url = new URL(selfPath, 'http://localhost');
     const pageUrl = (p: number) => {

@@ -592,6 +592,40 @@ describe('OPDS auth and catalog (e2e)', { timeout: 120_000 }, () => {
         );
       }
     });
+    it('paginates authors with a restriction-aware count and links filtered feeds up', async () => {
+      // A second visible author guarantees at least two pages at size=1.
+      await linkBookAuthor(visibleBookBeta.bookId, `Second Visible Author ${randomUUID().slice(0, 8)}`);
+
+      const allAuthors = await opdsGet('/api/v1/opds/authors?page=1&size=100', ownerCredentials);
+      expect(allAuthors.statusCode).toBe(200);
+      expect(allAuthors.body).toContain(visibleAuthorName);
+      expect(allAuthors.body).not.toContain(hiddenAuthorName);
+      const authorCount = (allAuthors.body.match(/<id>urn:bookorbit:author:/g) ?? []).length;
+      expect(authorCount).toBeGreaterThanOrEqual(2);
+
+      // The count query must agree with the list query, or `last` points past the real end.
+      const firstPage = await opdsGet('/api/v1/opds/authors?page=1&size=1', ownerCredentials);
+      expect(firstPage.statusCode).toBe(200);
+      expect((firstPage.body.match(/<id>urn:bookorbit:author:/g) ?? []).length).toBe(1);
+      expect(firstPage.body).toContain(`<link rel="last" href="/api/v1/opds/authors?page=${authorCount}&amp;size=1"`);
+      expect(firstPage.body).toContain('<link rel="next" href="/api/v1/opds/authors?page=2&amp;size=1"');
+
+      const lastPage = await opdsGet(`/api/v1/opds/authors?page=${authorCount}&size=1`, ownerCredentials);
+      expect(lastPage.body).not.toContain('rel="next"');
+
+      const tooDeep = await opdsGet('/api/v1/opds/authors?page=1000000&size=100', ownerCredentials);
+      expect(tooDeep.statusCode).toBe(400);
+
+      const authorFeed = await opdsGet(`/api/v1/opds/catalog?author=${encodeURIComponent(visibleAuthorName)}`, ownerCredentials);
+      expect(authorFeed.statusCode).toBe(200);
+      expect(authorFeed.body).toContain('Visible Alpha');
+      expect(authorFeed.body).toContain(
+        '<link rel="up" href="/api/v1/opds/authors" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>',
+      );
+
+      const allBooks = await opdsGet('/api/v1/opds/catalog', ownerCredentials);
+      expect(allBooks.body).toContain('<link rel="up" href="/api/v1/opds" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>');
+    });
   });
 
   describe('tokenized image access and download behavior', () => {

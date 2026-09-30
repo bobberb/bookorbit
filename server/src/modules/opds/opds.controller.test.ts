@@ -32,6 +32,8 @@ function makeController() {
     getUserCollections: vi.fn().mockResolvedValue([{ id: 4, name: 'Favorites', bookCount: 2 }]),
     getUserSmartScopes: vi.fn().mockResolvedValue([{ id: 7, name: 'Unread', icon: 'sparkles' }]),
     getDistinctAuthors: vi.fn().mockResolvedValue([{ name: 'Frank Herbert', bookCount: 3 }]),
+    getDistinctAuthorsPage: vi.fn().mockResolvedValue({ items: [{ name: 'Frank Herbert', bookCount: 3 }], hasNext: false }),
+    getDistinctAuthorsCount: vi.fn().mockResolvedValue(1),
     getDistinctSeries: vi.fn().mockResolvedValue([
       { name: null, bookCount: 1 },
       { name: 'Dune', bookCount: 2 },
@@ -101,15 +103,98 @@ describe('OpdsController', () => {
     await controller.libraries(user, makeReply());
     await controller.collections(user, makeReply());
     await controller.smartScopes(user, makeReply());
-    await controller.authors(user, makeReply());
+    await controller.authors(user, 1, 50, makeReply());
     await controller.series(user, makeReply());
 
     expect(opdsBookService.getAccessibleLibraries).toHaveBeenCalledWith(8, false);
     expect(opdsBookService.getUserCollections).toHaveBeenCalledWith(8);
     expect(opdsBookService.getUserSmartScopes).toHaveBeenCalledWith(8);
-    expect(opdsBookService.getDistinctAuthors).toHaveBeenCalledWith(8, false, undefined);
+    expect(opdsBookService.getDistinctAuthorsPage).toHaveBeenCalledWith(8, { limit: 50, offset: 0 }, false, undefined);
+    expect(opdsBookService.getDistinctAuthorsCount).toHaveBeenCalledWith(8, {}, false, undefined);
     expect(opdsBookService.getDistinctSeries).toHaveBeenCalledWith(8, false, undefined);
     expect(opdsService.generateSeriesNavigation).toHaveBeenCalledWith([{ name: 'Dune', bookCount: 2 }]);
+  });
+
+  it('authors nav paginates: clamps window, threads page/size, and enforces the deep-pagination guard', async () => {
+    const { controller, opdsBookService, opdsService } = makeController();
+    const user = { userId: 8, isSuperuser: false } as never;
+
+    opdsBookService.getDistinctAuthorsPage.mockResolvedValue({
+      items: [{ name: 'Frank Herbert', bookCount: 3 }],
+      hasNext: true,
+    });
+
+    await controller.authors(user, 2, 10, makeReply());
+
+    expect(opdsBookService.getDistinctAuthorsPage).toHaveBeenCalledWith(8, { limit: 10, offset: 10 }, false, undefined);
+    expect(opdsService.generateAuthorsNavigation).toHaveBeenCalledWith([{ name: 'Frank Herbert', bookCount: 3 }], 2, 10, true, 1);
+
+    await expect(controller.authors(user, 1_000_000, 100, makeReply())).rejects.toThrow(BadRequestException);
+  });
+
+  it('per-author catalog carries the sort facet group and an up link back to /authors', async () => {
+    const { controller, opdsBookService, opdsService } = makeController();
+    const user = { userId: 7, isSuperuser: false, sortOrder: 'recent', coverToken: 'token' } as never;
+
+    await controller.catalog(
+      user,
+      1,
+      50,
+      undefined,
+      undefined,
+      undefined,
+      'Frank Herbert',
+      undefined,
+      undefined,
+      makeReply(),
+      undefined,
+      'author_asc',
+    );
+
+    expect(opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'author_asc', 1, 50, { author: 'Frank Herbert' }, false, undefined);
+    expect(opdsService.generateAcquisitionFeed).toHaveBeenCalledWith(
+      expect.anything(),
+      'urn:bookorbit:catalog:author:Frank%20Herbert',
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining('author=Frank+Herbert'),
+      'token',
+      'author_asc',
+      '/api/v1/opds/authors',
+    );
+  });
+
+  it('all-books catalog links up to the root navigation feed', async () => {
+    const { controller, opdsService } = makeController();
+    const user = { userId: 7, isSuperuser: false, sortOrder: 'recent', coverToken: 'token' } as never;
+
+    await controller.catalog(user, 1, 50, undefined, undefined, undefined, undefined, undefined, undefined, makeReply());
+
+    const upArg = opdsService.generateAcquisitionFeed.mock.calls[0][9];
+    expect(upArg).toBe('/api/v1/opds');
+  });
+
+  it('each filtered catalog links up to its parent navigation feed', async () => {
+    const user = { userId: 7, isSuperuser: false, sortOrder: 'recent', coverToken: 'token' } as never;
+    const upArgFor = async (args: Parameters<OpdsController['catalog']>): Promise<unknown> => {
+      const { controller, opdsService } = makeController();
+      await controller.catalog(...args);
+      return opdsService.generateAcquisitionFeed.mock.calls[0][9];
+    };
+
+    // [user, page, size, libraryId, collectionId, smartScopeId, author, series, q, reply, seriesId]
+    expect(await upArgFor([user, 1, 50, undefined, undefined, undefined, 'Frank Herbert', undefined, undefined, makeReply()])).toBe(
+      '/api/v1/opds/authors',
+    );
+    expect(await upArgFor([user, 1, 50, undefined, '8', undefined, undefined, undefined, undefined, makeReply()])).toBe('/api/v1/opds/collections');
+    expect(await upArgFor([user, 1, 50, '3', undefined, undefined, undefined, undefined, undefined, makeReply()])).toBe('/api/v1/opds/libraries');
+    expect(await upArgFor([user, 1, 50, undefined, undefined, undefined, undefined, 'Dune', undefined, makeReply()])).toBe('/api/v1/opds/series');
+    expect(await upArgFor([user, 1, 50, undefined, undefined, undefined, undefined, undefined, undefined, makeReply(), '5'])).toBe(
+      '/api/v1/opds/series',
+    );
+    expect(await upArgFor([user, 1, 50, undefined, undefined, '9', undefined, undefined, undefined, makeReply()])).toBe('/api/v1/opds/smart-scopes');
   });
 
   it('catalog clamps pagination and passes parsed filters to the book service', async () => {
@@ -145,6 +230,7 @@ describe('OpdsController', () => {
       expect.not.stringContaining('sort='),
       'token',
       'author_desc',
+      '/api/v1/opds/authors',
     );
   });
 
@@ -177,6 +263,7 @@ describe('OpdsController', () => {
       expect.stringContaining('sort=published_desc'),
       expect.anything(),
       'published_desc',
+      '/api/v1/opds',
     );
 
     const unknown = makeController();
@@ -229,6 +316,7 @@ describe('OpdsController', () => {
       expect.stringContaining('collectionId=8'),
       'token',
       'published_desc',
+      '/api/v1/opds/collections',
     );
   });
 
@@ -247,6 +335,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      '/api/v1/opds',
     );
 
     const libraryOnly = makeController();
@@ -261,6 +350,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      '/api/v1/opds/libraries',
     );
 
     const searchOnly = makeController();
@@ -275,6 +365,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      '/api/v1/opds',
     );
 
     const multiFilter = makeController();
@@ -289,6 +380,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      '/api/v1/opds/authors',
     );
   });
 

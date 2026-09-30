@@ -46,7 +46,7 @@ function entries(feed: Record<string, any>): Array<Record<string, any>> {
   return (feed.entry ?? []) as Array<Record<string, any>>;
 }
 
-function sampleBook(): OpdsBookEntry {
+function sampleBook(overrides?: Partial<OpdsBookEntry>): OpdsBookEntry {
   return {
     id: 1,
     libraryId: 1,
@@ -64,6 +64,7 @@ function sampleBook(): OpdsBookEntry {
     hasCover: true,
     authors: ['Brandon Sanderson'],
     files: [{ id: 10, format: 'epub' }],
+    ...overrides,
   };
 }
 
@@ -218,6 +219,38 @@ describe('OPDS 1.2 conformance', () => {
     expect(acquisitionUrl?.['@_template']).toContain('{searchTerms}');
   });
 
+  describe('authors navigation pagination', () => {
+    it('emits navigation-typed first/previous/next links on a middle page', () => {
+      const xml = makeService().generateAuthorsNavigation([{ name: 'Frank Herbert', bookCount: 3 }], 2, 10, true);
+      const feed = parseFeed(xml);
+
+      assertFeedEssentials(xml, feed);
+      expect(linkByRel(feed, 'self')?.['@_href']).toBe(`${BASE}/authors?page=2&size=10`);
+      expect(linkByRel(feed, 'first')?.['@_href']).toBe(`${BASE}/authors?page=1&size=10`);
+      expect(linkByRel(feed, 'previous')?.['@_href']).toBe(`${BASE}/authors?page=1&size=10`);
+      expect(linkByRel(feed, 'next')?.['@_href']).toBe(`${BASE}/authors?page=3&size=10`);
+      for (const rel of ['self', 'first', 'previous', 'next']) {
+        expect(linkByRel(feed, rel)?.['@_type']).toBe(OPDS_MIME_NAV);
+      }
+    });
+
+    it('omits first/previous on page 1, next on the final page, and last without a total', () => {
+      const xml = makeService().generateAuthorsNavigation([{ name: 'Frank Herbert', bookCount: 3 }], 1, 10, false);
+      const feed = parseFeed(xml);
+
+      for (const rel of ['first', 'previous', 'next', 'last']) {
+        expect(linkByRel(feed, rel)).toBeUndefined();
+      }
+    });
+
+    it('emits a navigation-typed last link to the final page when a total is supplied', () => {
+      const xml = makeService().generateAuthorsNavigation([{ name: 'Frank Herbert', bookCount: 3 }], 2, 10, true, 95);
+      const feed = parseFeed(xml);
+
+      expect(linkByRel(feed, 'last')).toMatchObject({ '@_href': `${BASE}/authors?page=10&size=10`, '@_type': OPDS_MIME_NAV });
+    });
+  });
+
   it('generates conformant sort facets on an acquisition feed', () => {
     const xml = makeService().generateAcquisitionFeed(
       'Catalog',
@@ -241,5 +274,24 @@ describe('OPDS 1.2 conformance', () => {
       expect(facet['@_opds:facetGroup']).toBe('Sort');
     }
     expect(facetLinks.filter((link) => link['@_opds:activeFacet'] === 'true')).toHaveLength(1);
+  });
+
+  it('carries an up link from a filtered acquisition feed to its parent navigation feed', () => {
+    const xml = makeService().generateAcquisitionFeed(
+      'Catalog',
+      'urn:bookorbit:catalog:author:Frank%20Herbert',
+      [sampleBook({ id: 7, authors: ['Frank Herbert'], seriesId: null, seriesName: null, seriesIndex: null })],
+      3,
+      1,
+      50,
+      `${BASE}/catalog?author=Frank+Herbert&page=1&size=50&sort=author_asc`,
+      'test-token',
+      'author_asc',
+      `${BASE}/authors`,
+    );
+    const feed = parseFeed(xml);
+
+    assertFeedEssentials(xml, feed);
+    expect(linkByRel(feed, 'up')).toMatchObject({ '@_href': `${BASE}/authors`, '@_type': OPDS_MIME_NAV });
   });
 });
