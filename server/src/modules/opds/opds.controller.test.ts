@@ -142,8 +142,93 @@ describe('OpdsController', () => {
       1,
       1,
       100,
-      expect.stringContaining('/api/v1/opds/catalog?'),
+      expect.not.stringContaining('sort='),
       'token',
+      'author_desc',
+    );
+  });
+
+  it('catalog applies ?sort= override and falls back to stored sort when absent or unknown', async () => {
+    const override = makeController();
+    const user = { userId: 7, isSuperuser: false, sortOrder: 'recent', coverToken: 'token' } as never;
+
+    await override.controller.catalog(
+      user,
+      1,
+      50,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      makeReply(),
+      undefined,
+      'published_desc',
+    );
+    expect(override.opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'published_desc', 1, 50, {}, false, undefined);
+    expect(override.opdsService.generateAcquisitionFeed).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining('sort=published_desc'),
+      expect.anything(),
+      'published_desc',
+    );
+
+    const unknown = makeController();
+    await unknown.controller.catalog(
+      user,
+      1,
+      50,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      makeReply(),
+      undefined,
+      'nonsense',
+    );
+    expect(unknown.opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'recent', 1, 50, {}, false, undefined);
+    expect(unknown.opdsService.generateAcquisitionFeed.mock.calls[0][6]).toBe('/api/v1/opds/catalog?page=1&size=50');
+    expect(unknown.opdsService.generateAcquisitionFeed.mock.calls[0][8]).toBe('recent');
+  });
+
+  it('catalog keeps the pre-facet self URL when no ?sort= is passed', async () => {
+    const { controller, opdsBookService, opdsService } = makeController();
+    const user = { userId: 7, isSuperuser: false, sortOrder: 'title_desc', coverToken: 'token' } as never;
+
+    await controller.catalog(user, 2, 25, '3', undefined, undefined, undefined, undefined, undefined, makeReply());
+
+    expect(opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'title_desc', 2, 25, { libraryId: 3 }, false, undefined);
+    expect(opdsService.generateAcquisitionFeed.mock.calls[0][6]).toBe('/api/v1/opds/catalog?libraryId=3&page=2&size=25');
+  });
+
+  it('per-collection catalog threads collectionId and sort into the self path', async () => {
+    const { controller, opdsBookService, opdsService } = makeController();
+    const user = { userId: 7, isSuperuser: false, sortOrder: 'recent', coverToken: 'token' } as never;
+
+    await controller.catalog(user, 1, 50, undefined, '8', undefined, undefined, undefined, undefined, makeReply(), undefined, 'published_desc');
+
+    expect(opdsBookService.getBooksPage).toHaveBeenCalledWith(7, 'published_desc', 1, 50, { collectionId: 8 }, false, undefined);
+    const selfPath = opdsService.generateAcquisitionFeed.mock.calls[0][6] as string;
+    expect(selfPath).toContain('collectionId=8');
+    expect(selfPath).toContain('sort=published_desc');
+    expect(opdsService.generateAcquisitionFeed).toHaveBeenCalledWith(
+      expect.anything(),
+      'urn:bookorbit:catalog:collectionId:8',
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.stringContaining('collectionId=8'),
+      'token',
+      'published_desc',
     );
   });
 
@@ -155,6 +240,7 @@ describe('OpdsController', () => {
     expect(noFilters.opdsService.generateAcquisitionFeed).toHaveBeenCalledWith(
       expect.anything(),
       'urn:bookorbit:catalog',
+      expect.anything(),
       expect.anything(),
       expect.anything(),
       expect.anything(),
@@ -174,6 +260,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      expect.anything(),
     );
 
     const searchOnly = makeController();
@@ -187,6 +274,7 @@ describe('OpdsController', () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
+      expect.anything(),
     );
 
     const multiFilter = makeController();
@@ -194,6 +282,7 @@ describe('OpdsController', () => {
     expect(multiFilter.opdsService.generateAcquisitionFeed).toHaveBeenCalledWith(
       expect.anything(),
       'urn:bookorbit:catalog:author:Frank%20Herbert:libraryId:2',
+      expect.anything(),
       expect.anything(),
       expect.anything(),
       expect.anything(),

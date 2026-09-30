@@ -554,6 +554,44 @@ describe('OPDS auth and catalog (e2e)', { timeout: 120_000 }, () => {
       expect(isbnSearchResponse.body).not.toContain('Visible Beta');
       expect(isbnSearchResponse.body).not.toContain('Hidden Gamma');
     });
+    it('orders the catalog by the requested sort facet and keeps default URLs unchanged', async () => {
+      // Alpha has a full date; Beta only a year, which sorts as January 1 of that year.
+      await ctx.db
+        .update(schema.bookMetadata)
+        .set({ publishedDate: '1999-05-01', publishedYear: 1999 })
+        .where(eq(schema.bookMetadata.bookId, visibleBookAlpha.bookId));
+      await ctx.db
+        .update(schema.bookMetadata)
+        .set({ publishedDate: null, publishedYear: 2005 })
+        .where(eq(schema.bookMetadata.bookId, visibleBookBeta.bookId));
+      const betaBeforeAlpha = (body: string) => body.indexOf('<title>Visible Beta</title>') < body.indexOf('<title>Visible Alpha</title>');
+
+      const newest = await opdsGet('/api/v1/opds/catalog?sort=published_desc', ownerCredentials);
+      expect(newest.statusCode).toBe(200);
+      expect(betaBeforeAlpha(newest.body)).toBe(true);
+      expect(newest.body).toMatch(/<link rel="self" href="[^"]*sort=published_desc/);
+      expect(newest.body).toMatch(/<link rel="http:\/\/opds-spec\.org\/facet"[^>]*sort=published_desc[^>]*opds:activeFacet="true"/);
+
+      const oldest = await opdsGet('/api/v1/opds/catalog?sort=published_asc', ownerCredentials);
+      expect(betaBeforeAlpha(oldest.body)).toBe(false);
+
+      const titleDesc = await opdsGet(`/api/v1/opds/catalog?libraryId=${visibleLibrary.libraryId}&sort=title_desc`, ownerCredentials);
+      expect(betaBeforeAlpha(titleDesc.body)).toBe(true);
+      const facetHrefs = [...titleDesc.body.matchAll(/<link rel="http:\/\/opds-spec\.org\/facet" href="([^"]*)"/g)].map((match) => match[1]);
+      expect(facetHrefs).toHaveLength(10);
+      for (const href of facetHrefs) {
+        expect(href).toContain(`libraryId=${visibleLibrary.libraryId}`);
+        expect(href).toContain('page=1');
+      }
+
+      for (const path of ['/api/v1/opds/catalog?page=1&size=10', '/api/v1/opds/catalog?page=1&size=10&sort=bogus']) {
+        const response = await opdsGet(path, ownerCredentials);
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toContain(
+          '<link rel="self" href="/api/v1/opds/catalog?page=1&amp;size=10" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>',
+        );
+      }
+    });
   });
 
   describe('tokenized image access and download behavior', () => {

@@ -54,7 +54,7 @@ type ContextSeriesRow = {
   seriesIndex: string | null;
 };
 
-type OpdsSortOrder =
+export type OpdsSortOrder =
   | 'recent'
   | 'recent_asc'
   | 'updated'
@@ -63,6 +63,8 @@ type OpdsSortOrder =
   | 'recently_read_asc'
   | 'title_asc'
   | 'title_desc'
+  | 'published_desc'
+  | 'published_asc'
   | 'author_asc'
   | 'author_desc'
   | 'series_asc'
@@ -77,6 +79,11 @@ const OPDS_SORT_MAP: Record<OpdsSortOrder, SQL[]> = {
   recently_read_asc: [sql`${userBookStatus.updatedAt} ASC NULLS LAST`, sql`${books.id} ASC`],
   title_asc: [sql`${bookMetadata.title} ASC NULLS LAST`, sql`${books.id} ASC`],
   title_desc: [sql`${bookMetadata.title} DESC NULLS LAST`, sql`${books.id} ASC`],
+  published_desc: [
+    sql`coalesce(${bookMetadata.publishedDate}, make_date(${bookMetadata.publishedYear}, 1, 1)) DESC NULLS LAST`,
+    sql`${books.id} ASC`,
+  ],
+  published_asc: [sql`coalesce(${bookMetadata.publishedDate}, make_date(${bookMetadata.publishedYear}, 1, 1)) ASC NULLS LAST`, sql`${books.id} ASC`],
   author_asc: [sql`min(${authors.sortName}) ASC NULLS LAST`, sql`${bookMetadata.title} ASC NULLS LAST`, sql`${books.id} ASC`],
   author_desc: [sql`min(${authors.sortName}) DESC NULLS LAST`, sql`${bookMetadata.title} ASC NULLS LAST`, sql`${books.id} ASC`],
   series_asc: [sql`${bookMetadata.seriesName} ASC NULLS LAST`, ...seriesIndexOrderBy(bookMetadata.seriesIndex, 'ASC'), sql`${books.id} ASC`],

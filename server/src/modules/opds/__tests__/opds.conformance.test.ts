@@ -14,6 +14,7 @@ const OPENSEARCH_NS = 'http://a9.com/-/spec/opensearch/1.1/';
 const ACQ_REL = 'http://opds-spec.org/acquisition';
 const IMAGE_REL = 'http://opds-spec.org/image';
 const THUMBNAIL_REL = 'http://opds-spec.org/image/thumbnail';
+const FACET_REL = 'http://opds-spec.org/facet';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -215,5 +216,30 @@ describe('OPDS 1.2 conformance', () => {
     const urls = Array.isArray(description.Url) ? description.Url : [description.Url];
     const acquisitionUrl = urls.find((url: Record<string, string>) => url['@_type'] === OPDS_MIME_ACQ);
     expect(acquisitionUrl?.['@_template']).toContain('{searchTerms}');
+  });
+
+  it('generates conformant sort facets on an acquisition feed', () => {
+    const xml = makeService().generateAcquisitionFeed(
+      'Catalog',
+      'urn:bookorbit:catalog',
+      [sampleBook()],
+      100,
+      2,
+      10,
+      `${BASE}/catalog?page=2&size=10&sort=title_asc`,
+      'test-token',
+      'title_asc',
+    );
+    const feed = parseFeed(xml);
+
+    assertFeedEssentials(xml, feed);
+    const facetLinks = links(feed).filter((link) => link['@_rel'] === FACET_REL);
+    expect(facetLinks.length).toBeGreaterThan(0);
+    for (const facet of facetLinks) {
+      expect(facet['@_type']).toBe(OPDS_MIME_ACQ);
+      expect(facet['@_title']).toBeTruthy();
+      expect(facet['@_opds:facetGroup']).toBe('Sort');
+    }
+    expect(facetLinks.filter((link) => link['@_opds:activeFacet'] === 'true')).toHaveLength(1);
   });
 });

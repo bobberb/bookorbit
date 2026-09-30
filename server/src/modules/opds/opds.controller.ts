@@ -31,6 +31,7 @@ import { OpdsUser } from './opds-user.decorator';
 import { OpdsBookService } from './opds-book.service';
 import { OpdsService } from './opds.service';
 import { AudiolessEpubService } from '../book/audioless-epub.service';
+import { parseSortParam } from './opds-sort.helpers';
 import { BookService } from '../book/book.service';
 import { sanitizeLogValue } from '../../common/utils/log-sanitize.utils';
 import { BookCoverStore } from '../book-cover-store/book-cover-store.service';
@@ -109,10 +110,14 @@ export class OpdsController {
     @Query('q') q?: string,
     @Res() reply?: FastifyReply,
     @Query('seriesId') seriesIdStr?: string,
+    @Query('sort') sortStr?: string,
   ) {
     const clampedSize = Math.min(Math.max(size, 1), 100);
     const clampedPage = Math.max(page, 1);
     this.assertPaginationWindow(clampedPage, clampedSize);
+
+    const requestedSort = parseSortParam(sortStr);
+    const sortOrder = requestedSort ?? user.sortOrder;
 
     const filters: Record<string, string | number> = {};
     const libraryId = this.parseOptionalPositiveInt('libraryId', libraryIdStr);
@@ -130,7 +135,7 @@ export class OpdsController {
 
     const { entries, total } = await this.opdsBookService.getBooksPage(
       user.userId,
-      user.sortOrder,
+      sortOrder,
       clampedPage,
       clampedSize,
       filters,
@@ -142,6 +147,7 @@ export class OpdsController {
     for (const [k, v] of Object.entries(filters)) selfParams.set(k, String(v));
     selfParams.set('page', String(clampedPage));
     selfParams.set('size', String(clampedSize));
+    if (requestedSort) selfParams.set('sort', requestedSort);
     const selfPath = `/api/v1/opds/catalog?${selfParams.toString()}`;
 
     const filterSuffix = Object.entries(filters)
@@ -151,7 +157,17 @@ export class OpdsController {
     const feedId = filterSuffix ? `urn:bookorbit:catalog:${filterSuffix}` : 'urn:bookorbit:catalog';
 
     const feedTitle = q ? `Search: ${q}` : 'Catalog';
-    const xml = this.opdsService.generateAcquisitionFeed(feedTitle, feedId, entries, total, clampedPage, clampedSize, selfPath, user.coverToken);
+    const xml = this.opdsService.generateAcquisitionFeed(
+      feedTitle,
+      feedId,
+      entries,
+      total,
+      clampedPage,
+      clampedSize,
+      selfPath,
+      user.coverToken,
+      sortOrder,
+    );
     this.sendXml(reply!, xml, OPDS_MIME_ACQ);
   }
 

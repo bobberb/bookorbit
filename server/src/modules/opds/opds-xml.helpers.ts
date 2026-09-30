@@ -31,6 +31,11 @@ export function xmlLink(rel: string, href: string, type: string, title?: string)
   return `<link rel="${esc(rel)}" href="${esc(href)}" type="${esc(type)}"${t}/>`;
 }
 
+export function xmlFacetLink(href: string, title: string, group: string, active: boolean): string {
+  const activeAttr = active ? ' opds:activeFacet="true"' : '';
+  return `<link rel="http://opds-spec.org/facet" href="${esc(href)}" type="${esc(OPDS_MIME_ACQ)}" title="${esc(title)}" opds:facetGroup="${esc(group)}"${activeAttr}/>`;
+}
+
 export function fileMimeType(format: string): string {
   switch (format.toLowerCase()) {
     case 'epub':
